@@ -181,4 +181,20 @@ class SeamlessWalletAndGameSimulatorTest extends TestCase
         $freshCash = (float) $this->player->wallet->fresh()->cash_balance_usd;
         $this->assertGreaterThan($initialCash, $freshCash);
     }
+
+    public function test_player_cannot_claim_vip_cashback_twice_in_same_week(): void
+    {
+        // First claim
+        $this->actingAs($this->player)->post('/vip/claim-cashback');
+
+        // Second claim attempt in same week should be gracefully rejected
+        $response = $this->actingAs($this->player)->post('/vip/claim-cashback');
+        $response->assertRedirect('/vip');
+        $response->assertSessionHas('error');
+
+        // And page renders disabled claim state
+        $pageResponse = $this->actingAs($this->player)->get('/vip');
+        $pageResponse->assertStatus(200);
+        $pageResponse->assertSee('Cashback Already Claimed This Week');
+    }
 }

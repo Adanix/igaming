@@ -667,33 +667,46 @@ class WalletLedgerService
      */
     public function creditVipCashback(Wallet $wallet, float $amount): void
     {
-        $cashBefore = (float) $wallet->cash_balance_usd;
-        $bonusBefore = (float) $wallet->bonus_balance_usd;
-        $lockedBefore = (float) $wallet->locked_withdrawal_usd;
+        $idempKey = 'idemp-vip-cb-' . $wallet->id . '-' . now()->format('Y-W');
 
-        $cashAfter = $cashBefore + $amount;
-        $wallet->cash_balance_usd = $cashAfter;
-        $wallet->save();
+        DB::transaction(function () use ($wallet, $amount, $idempKey) {
+            $existing = WalletLedgerEntry::where('idempotency_key', $idempKey)->first();
+            if ($existing) {
+                throw new InvalidArgumentException('VIP weekly cashback for this period has already been claimed.');
+            }
 
-        WalletLedgerEntry::create([
-            'wallet_id' => $wallet->id,
-            'user_id' => $wallet->user_id,
-            'entry_reference' => 'LED-VIP-CB-' . strtoupper(Str::random(10)),
-            'idempotency_key' => 'idemp-vip-cb-' . $wallet->id . '-' . now()->format('Y-W'),
-            'entry_type' => 'vip_cashback_credit',
-            'balance_bucket' => 'cash',
-            'amount_usd' => $amount,
-            'cash_balance_before_usd' => $cashBefore,
-            'cash_balance_after_usd' => $cashAfter,
-            'bonus_balance_before_usd' => $bonusBefore,
-            'bonus_balance_after_usd' => $bonusBefore,
-            'locked_balance_before_usd' => $lockedBefore,
-            'locked_balance_after_usd' => $lockedBefore,
-            'description_en' => "VIP Weekly Cashback Claimed ({$wallet->user->vipTier?->name_en})",
-            'description_id' => "Klaim Cashback Mingguan VIP ({$wallet->user->vipTier?->name_id})",
-            'actor_user_id' => $wallet->user_id,
-            'created_at' => now(),
-        ]);
+            $freshWallet = Wallet::where('id', $wallet->id)->lockForUpdate()->firstOrFail();
+
+            $cashBefore = (float) $freshWallet->cash_balance_usd;
+            $bonusBefore = (float) $freshWallet->bonus_balance_usd;
+            $lockedBefore = (float) $freshWallet->locked_withdrawal_usd;
+
+            $cashAfter = $cashBefore + $amount;
+            $freshWallet->cash_balance_usd = $cashAfter;
+            $freshWallet->save();
+
+            WalletLedgerEntry::create([
+                'wallet_id' => $freshWallet->id,
+                'user_id' => $freshWallet->user_id,
+                'entry_reference' => 'LED-VIP-CB-' . strtoupper(Str::random(10)),
+                'idempotency_key' => $idempKey,
+                'entry_type' => 'vip_cashback_credit',
+                'balance_bucket' => 'cash',
+                'amount_usd' => $amount,
+                'cash_balance_before_usd' => $cashBefore,
+                'cash_balance_after_usd' => $cashAfter,
+                'bonus_balance_before_usd' => $bonusBefore,
+                'bonus_balance_after_usd' => $bonusBefore,
+                'locked_balance_before_usd' => $lockedBefore,
+                'locked_balance_after_usd' => $lockedBefore,
+                'description_en' => "VIP Weekly Cashback Claimed ({$freshWallet->user->vipTier?->name_en})",
+                'description_id' => "Klaim Cashback Mingguan VIP ({$freshWallet->user->vipTier?->name_id})",
+                'actor_user_id' => $freshWallet->user_id,
+                'created_at' => now(),
+            ]);
+
+            $wallet->refresh();
+        });
     }
 
     /**

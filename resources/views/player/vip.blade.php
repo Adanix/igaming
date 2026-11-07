@@ -76,19 +76,29 @@
 
                 <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-center my-3">
                     <span class="text-[10px] text-slate-400 uppercase font-semibold">Eligible Cashback Available</span>
-                    <div class="text-3xl font-black font-mono text-emerald-400">
-                        {{ format_usd($eligibleCashback > 0 ? $eligibleCashback : 15.00) }}
+                    <div class="text-3xl font-black font-mono {{ $hasClaimedThisWeek ? 'text-slate-500' : 'text-emerald-400' }}">
+                        {{ format_usd($eligibleCashback) }}
                     </div>
-                    <span class="text-[10px] text-slate-500">Credited directly to cash balance</span>
+                    @if($hasClaimedThisWeek)
+                        <span class="text-[10px] text-emerald-400 font-semibold">&check; Already claimed for Week {{ now()->format('W') }}</span>
+                    @else
+                        <span class="text-[10px] text-slate-500">Credited directly to cash balance</span>
+                    @endif
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('vip.claim-cashback') }}">
-                @csrf
-                <button type="submit" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 font-bold text-xs sm:text-sm hover:from-emerald-400 transition shadow-lg shadow-emerald-500/20">
-                    Claim VIP Cashback Reward
+            @if($hasClaimedThisWeek)
+                <button type="button" disabled class="w-full py-3 px-4 rounded-xl bg-slate-800/80 text-slate-500 font-bold text-xs sm:text-sm cursor-not-allowed border border-slate-700/50">
+                    &check; Cashback Already Claimed This Week
                 </button>
-            </form>
+            @else
+                <form method="POST" action="{{ route('vip.claim-cashback') }}">
+                    @csrf
+                    <button type="submit" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 font-bold text-xs sm:text-sm hover:from-emerald-400 transition shadow-lg shadow-emerald-500/20">
+                        Claim VIP Cashback Reward
+                    </button>
+                </form>
+            @endif
         </div>
     </div>
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Player;
 use App\Http\Controllers\Controller;
 use App\Models\GameRound;
 use App\Models\VipTier;
+use App\Models\WalletLedgerEntry;
 use App\Services\WalletLedgerService;
 use Exception;
 use Illuminate\Http\RedirectResponse;
@@ -42,14 +43,24 @@ class VipController extends Controller
             $progressPct = min(100.0, round(($earnedInRange / $range) * 100.0, 1));
         }
 
-        // Calculate simulated weekly cashback
-        $cashbackRate = (float) ($currentTier?->cashback_rate_pct ?? 2.0) / 100.0;
-        $recentLosses = GameRound::where('user_id', $user->id)
-            ->where('status', 'settled')
-            ->where('outcome_type', 'loss')
-            ->sum('bet_amount_usd');
+        $idempKey = 'idemp-vip-cb-' . ($user->wallet?->id ?? 0) . '-' . now()->format('Y-W');
+        $hasClaimedThisWeek = WalletLedgerEntry::where('idempotency_key', $idempKey)->exists();
 
-        $eligibleCashback = round($recentLosses * $cashbackRate, 2);
+        if ($hasClaimedThisWeek) {
+            $eligibleCashback = 0.00;
+        } else {
+            // Calculate simulated weekly cashback
+            $cashbackRate = (float) ($currentTier?->cashback_rate_pct ?? 2.0) / 100.0;
+            $recentLosses = (float) GameRound::where('user_id', $user->id)
+                ->where('status', 'settled')
+                ->where('outcome_type', 'loss')
+                ->sum('bet_amount_usd');
+
+            $eligibleCashback = round($recentLosses * $cashbackRate, 2);
+            if ($eligibleCashback <= 0.00) {
+                $eligibleCashback = 15.00;
+            }
+        }
 
         return view('player.vip', compact(
             'user',
@@ -57,7 +68,8 @@ class VipController extends Controller
             'currentTier',
             'nextTier',
             'progressPct',
-            'eligibleCashback'
+            'eligibleCashback',
+            'hasClaimedThisWeek'
         ));
     }
 
@@ -67,10 +79,22 @@ class VipController extends Controller
     public function claimCashback(Request $request): RedirectResponse
     {
         $user = $request->user();
+        $wallet = $user->wallet;
+
+        if (! $wallet) {
+            return redirect()->back()->with('error', 'Wallet not found.');
+        }
+
+        $idempKey = 'idemp-vip-cb-' . $wallet->id . '-' . now()->format('Y-W');
+        if (WalletLedgerEntry::where('idempotency_key', $idempKey)->exists()) {
+            return redirect()->route('vip.index')
+                ->with('error', 'VIP weekly cashback for this period has already been claimed. Next cashback opens next week.');
+        }
+
         $currentTier = $user->vipTier;
         $cashbackRate = (float) ($currentTier?->cashback_rate_pct ?? 2.0) / 100.0;
 
-        $recentLosses = GameRound::where('user_id', $user->id)
+        $recentLosses = (float) GameRound::where('user_id', $user->id)
             ->where('status', 'settled')
             ->where('outcome_type', 'loss')
             ->sum('bet_amount_usd');
@@ -83,7 +107,7 @@ class VipController extends Controller
         }
 
         try {
-            $this->ledgerService->creditVipCashback($user->wallet, $amount);
+            $this->ledgerService->creditVipCashback($wallet, $amount);
 
             return redirect()->route('vip.index')
                 ->with('status', "VIP Cashback of " . format_usd($amount) . " credited directly to your cash wallet!");
