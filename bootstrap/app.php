@@ -13,6 +13,18 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/*',
+        ]);
+        $middleware->web(append: [
+            \App\Http\Middleware\SetLocale::class,
+        ]);
+        $middleware->alias([
+            'demo.mode' => \App\Http\Middleware\EnsureDemoModeEnabled::class,
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'admin.mfa' => \App\Http\Middleware\EnsureAdminMfaVerified::class,
+            'SetLocale' => \App\Http\Middleware\SetLocale::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
