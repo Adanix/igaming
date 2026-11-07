@@ -31,6 +31,7 @@ Route::get('/', [PublicPageController::class, 'home'])->name('public.home');
 Route::get('/docs', [PublicPageController::class, 'docs'])->name('public.docs');
 
 Route::get('/demo/login', [DemoAuthController::class, 'showLogin'])->name('demo.login');
+Route::get('/login', fn () => redirect()->route('demo.login'))->name('login');
 Route::post('/demo/quick-login', [DemoAuthController::class, 'quickLogin'])->name('demo.quick-login');
 Route::post('/demo/reset', [DemoAuthController::class, 'reset'])->name('demo.reset');
 Route::post('/logout', [DemoAuthController::class, 'logout'])->name('logout');

@@ -23,12 +23,12 @@ class VipController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $vipTiers = VipTier::orderBy('level_order')->get();
+        $vipTiers = VipTier::orderBy('min_wagered_usd')->get();
         $currentTier = $user->vipTier ?? $vipTiers->first();
 
         // Calculate next tier & progress
-        $nextTier = VipTier::where('level_order', '>', $currentTier->level_order)
-            ->orderBy('level_order')
+        $nextTier = VipTier::where('min_wagered_usd', '>', (float) $currentTier->min_wagered_usd)
+            ->orderBy('min_wagered_usd')
             ->first();
 
         $wageredPoints = (float) $user->vip_points;
@@ -43,7 +43,7 @@ class VipController extends Controller
         }
 
         // Calculate simulated weekly cashback
-        $cashbackRate = (float) $currentTier->cashback_percentage / 100.0;
+        $cashbackRate = (float) ($currentTier?->cashback_rate_pct ?? 2.0) / 100.0;
         $recentLosses = GameRound::where('user_id', $user->id)
             ->where('status', 'settled')
             ->where('outcome_type', 'loss')
@@ -68,7 +68,7 @@ class VipController extends Controller
     {
         $user = $request->user();
         $currentTier = $user->vipTier;
-        $cashbackRate = (float) ($currentTier?->cashback_percentage ?? 2.0) / 100.0;
+        $cashbackRate = (float) ($currentTier?->cashback_rate_pct ?? 2.0) / 100.0;
 
         $recentLosses = GameRound::where('user_id', $user->id)
             ->where('status', 'settled')

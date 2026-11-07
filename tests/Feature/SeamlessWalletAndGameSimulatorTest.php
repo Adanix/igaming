@@ -158,4 +158,27 @@ class SeamlessWalletAndGameSimulatorTest extends TestCase
         $freshBonus = $activeBonus->fresh();
         $this->assertEquals($initialWagered + 5.00, (float) $freshBonus->wagering_completed_usd);
     }
+
+    public function test_player_vip_hub_renders_tiers_and_current_status(): void
+    {
+        $response = $this->actingAs($this->player)->get('/vip');
+
+        $response->assertStatus(200);
+        $response->assertSee('VIP Loyalty Club & Tier Status');
+        $response->assertSee($this->player->vipTier->name);
+        $response->assertSee('Instant Loss Recovery');
+    }
+
+    public function test_player_can_claim_vip_cashback(): void
+    {
+        $initialCash = (float) $this->player->wallet->cash_balance_usd;
+
+        $response = $this->actingAs($this->player)->post('/vip/claim-cashback');
+
+        $response->assertRedirect('/vip');
+        $response->assertSessionHas('status');
+
+        $freshCash = (float) $this->player->wallet->fresh()->cash_balance_usd;
+        $this->assertGreaterThan($initialCash, $freshCash);
+    }
 }

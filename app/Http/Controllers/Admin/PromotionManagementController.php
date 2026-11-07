@@ -21,7 +21,7 @@ class PromotionManagementController extends Controller
     public function index(): View
     {
         $promotions = Promotion::withCount('playerBonuses')
-            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         return view('admin.promotions.index', compact('promotions'));
@@ -57,7 +57,6 @@ class PromotionManagementController extends Controller
             'fixed_bonus_usd' => $validated['fixed_bonus_usd'] ?? 0.0,
             'wagering_multiplier' => $validated['wagering_multiplier'],
             'status' => 'active',
-            'sort_order' => 10,
         ]);
 
         $this->auditLogger->log(

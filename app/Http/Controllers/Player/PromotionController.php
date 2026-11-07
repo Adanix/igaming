@@ -26,7 +26,7 @@ class PromotionController extends Controller
     {
         $user = $request->user();
         $promotions = Promotion::where('status', 'active')
-            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $activeBonus = PlayerBonus::with('promotion')

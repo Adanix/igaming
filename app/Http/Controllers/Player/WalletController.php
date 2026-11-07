@@ -30,7 +30,7 @@ class WalletController extends Controller
         $wallet = $user->wallet;
 
         $paymentMethods = PaymentMethod::where('status', 'active')
-            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $transactions = PaymentTransaction::with('paymentMethod')
